@@ -6,6 +6,11 @@
   "bin": {
     "code-ask": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "agent-skills"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx src/index.ts",

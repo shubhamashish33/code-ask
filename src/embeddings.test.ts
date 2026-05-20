@@ -59,4 +59,33 @@ describe("createEmbeddingProvider", () => {
       [0, 1]
     ]);
   });
+
+  it("does not include the API key in the request body", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "secret-key");
+    const fetchMock = vi.fn<(input: string, init: RequestInit) => Promise<Response>>(async () =>
+      Response.json({
+        data: [{ index: 0, embedding: [1, 0] }]
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createEmbeddingProvider({ provider: "openai" });
+    await provider.embedBatch(["private code"]);
+
+    const request = fetchMock.mock.calls[0]![1] as RequestInit;
+
+    expect(String(request.body)).not.toContain("secret-key");
+  });
+
+  it("does not leak the API key in request failure errors", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "secret-key");
+    const fetchMock = vi.fn<(input: string, init: RequestInit) => Promise<Response>>(
+      async () => new Response("nope", { status: 401, statusText: "Unauthorized" })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = createEmbeddingProvider({ provider: "openai" });
+
+    await expect(provider.embedBatch(["private code"])).rejects.not.toThrow("secret-key");
+  });
 });

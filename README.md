@@ -28,6 +28,12 @@ OPENAI_API_KEY=... npx code-ask index --embeddings openai
 
 `AI_AGENT_API_KEY` can be used as an API-key alias, and `OPENAI_BASE_URL` or `AI_AGENT_BASE_URL` can point at an OpenAI-compatible embeddings endpoint. The query command uses the embedding provider stored in the index.
 
+## Privacy
+
+Local hashed embeddings are local-only. Source chunks are read from disk, converted to local vectors, and stored in `.code-ask/`; they are not sent to a remote service.
+
+When using `--embeddings openai`, code chunks are sent to the configured embeddings endpoint during indexing, and query text is sent during `ask`. Use this only for repositories where that is acceptable.
+
 ## Development
 
 ```bash
