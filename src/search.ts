@@ -1,13 +1,19 @@
 import type { IndexedChunk, SearchIndex } from "./index-store.js";
-import { cosineSimilarity, embedText, tokenize } from "./vector.js";
+import type { EmbeddingProvider } from "./embeddings.js";
+import { cosineSimilarity, tokenize } from "./vector.js";
 
 export type SearchResult = {
   chunk: IndexedChunk;
   score: number;
 };
 
-export function searchIndex(index: SearchIndex, query: string, limit: number): SearchResult[] {
-  const queryVector = embedText(query);
+export async function searchIndex(
+  index: SearchIndex,
+  query: string,
+  limit: number,
+  embeddings: EmbeddingProvider
+): Promise<SearchResult[]> {
+  const queryVector = await embeddings.embed(query);
   const queryTokens = new Set(tokenize(query));
 
   return index.chunks

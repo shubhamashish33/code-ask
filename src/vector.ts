@@ -2,6 +2,7 @@ const dimensions = 384;
 const tokenPattern = /[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+/g;
 
 export type SparseVector = Record<number, number>;
+export type Vector = SparseVector | number[];
 
 export function tokenize(input: string): string[] {
   const tokens = input.match(tokenPattern) ?? [];
@@ -21,10 +22,22 @@ export function embedText(input: string): SparseVector {
   return vector;
 }
 
-export function cosineSimilarity(left: SparseVector, right: SparseVector): number {
+export function cosineSimilarity(left: Vector, right: Vector): number {
   let score = 0;
 
-  for (const [key, value] of Object.entries(left)) {
+  if (Array.isArray(left) && Array.isArray(right)) {
+    const length = Math.min(left.length, right.length);
+
+    for (let index = 0; index < length; index += 1) {
+      score += left[index]! * right[index]!;
+    }
+
+    return score;
+  }
+
+  const leftEntries = Object.entries(left);
+
+  for (const [key, value] of leftEntries) {
     score += value * (right[Number(key)] ?? 0);
   }
 

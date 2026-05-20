@@ -20,6 +20,14 @@ npx code-ask ask "auth middleware" --json
 npx code-ask ask "auth middleware" --no-snippets --top-k 10
 ```
 
+Local hashed vectors are used by default. To build an index with OpenAI embeddings:
+
+```bash
+OPENAI_API_KEY=... npx code-ask index --embeddings openai
+```
+
+`AI_AGENT_API_KEY` can be used as an API-key alias, and `OPENAI_BASE_URL` or `AI_AGENT_BASE_URL` can point at an OpenAI-compatible embeddings endpoint. The query command uses the embedding provider stored in the index.
+
 ## Development
 
 ```bash

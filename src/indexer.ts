@@ -4,12 +4,13 @@ import path from "node:path";
 
 import { chunkFile } from "./chunk.js";
 import { discoverFiles } from "./discovery.js";
+import type { EmbeddingProvider } from "./embeddings.js";
 import { type IndexedChunk, type IndexedFile, type SearchIndex, loadIndex } from "./index-store.js";
-import { embedText } from "./vector.js";
 
 export type BuildIndexOptions = {
   root: string;
   maxFileBytes: number;
+  embeddings: EmbeddingProvider;
 };
 
 export type BuildIndexResult = {
@@ -24,8 +25,12 @@ export async function buildIndex(options: BuildIndexOptions): Promise<BuildIndex
   const root = path.resolve(options.root);
   const files = await discoverFiles(root);
   const previous = await loadReusableIndex(root);
-  const previousFiles = new Map(previous?.files.map((file) => [file.path, file]) ?? []);
-  const previousChunks = new Map(previous?.chunks.map((chunk) => [chunk.id, chunk]) ?? []);
+  const canReusePrevious = previous
+    ? embeddingMetadataMatches(previous.embedding, options.embeddings.metadata)
+    : false;
+  const reusablePrevious = canReusePrevious ? previous : undefined;
+  const previousFiles = new Map(reusablePrevious?.files.map((file) => [file.path, file]) ?? []);
+  const previousChunks = new Map(reusablePrevious?.chunks.map((chunk) => [chunk.id, chunk]) ?? []);
   const currentFileSet = new Set(files);
   const indexedFiles: IndexedFile[] = [];
   const indexedChunks: IndexedChunk[] = [];
@@ -73,9 +78,13 @@ export async function buildIndex(options: BuildIndexOptions): Promise<BuildIndex
       }
     }
 
-    const chunks = chunkFile(file, contents).map((chunk) => ({
+    const codeChunks = chunkFile(file, contents);
+    const vectors = await options.embeddings.embedBatch(
+      codeChunks.map((chunk) => `${chunk.file}\n${chunk.text}`)
+    );
+    const chunks = codeChunks.map((chunk, index) => ({
       ...chunk,
-      vector: embedText(`${chunk.file}\n${chunk.text}`)
+      vector: vectors[index]!
     }));
 
     indexedFiles.push({
@@ -90,9 +99,10 @@ export async function buildIndex(options: BuildIndexOptions): Promise<BuildIndex
   }
 
   const index: SearchIndex = {
-    version: 2,
+    version: 3,
     root,
     createdAt: new Date().toISOString(),
+    embedding: options.embeddings.metadata,
     files: indexedFiles,
     chunks: indexedChunks
   };
@@ -119,6 +129,13 @@ function chunksForFile(file: IndexedFile, chunks: Map<string, IndexedChunk>): In
 
 function hashContents(contents: string): string {
   return createHash("sha256").update(contents).digest("hex");
+}
+
+function embeddingMetadataMatches(
+  previous: SearchIndex["embedding"],
+  current: SearchIndex["embedding"]
+): boolean {
+  return previous.provider === current.provider && previous.model === current.model;
 }
 
 async function loadReusableIndex(root: string): Promise<SearchIndex | undefined> {

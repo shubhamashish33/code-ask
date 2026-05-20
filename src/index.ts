@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { Command } from "commander";
 
+import { createEmbeddingProvider, type EmbeddingProviderName } from "./embeddings.js";
 import { formatHumanResults, formatJsonResults } from "./format.js";
 import { type SearchIndex, loadIndex, saveIndex } from "./index-store.js";
 import { buildIndex } from "./indexer.js";
@@ -28,13 +29,26 @@ program
   .description("Build a local semantic index for a repository.")
   .option("-r, --root <path>", "repository root", process.cwd())
   .option("--max-file-bytes <bytes>", "skip files larger than this size", parseInteger, 250_000)
-  .action(async (options: { root: string; maxFileBytes: number }) => {
+  .option("--embeddings <provider>", "embedding provider: local or openai", parseEmbeddingProvider, "local")
+  .option("--embedding-model <model>", "embedding model for remote providers")
+  .action(
+    async (options: {
+      root: string;
+      maxFileBytes: number;
+      embeddings: EmbeddingProviderName;
+      embeddingModel?: string;
+    }) => {
     const root = path.resolve(options.root);
-    const result = await buildIndex({ root, maxFileBytes: options.maxFileBytes });
+    const embeddings = createEmbeddingProvider({
+      provider: options.embeddings,
+      model: options.embeddingModel
+    });
+    const result = await buildIndex({ root, maxFileBytes: options.maxFileBytes, embeddings });
     const savedTo = await saveIndex(root, result.index);
 
     console.log(`Indexed ${result.index.files.length} files into ${result.index.chunks.length} chunks.`);
     console.log(`Changed ${result.changed} files, reused ${result.reused} files.`);
+    console.log(`Embeddings ${result.index.embedding.provider}:${result.index.embedding.model}.`);
     if (result.skipped > 0) {
       console.log(`Skipped ${result.skipped} large files.`);
     }
@@ -42,7 +56,8 @@ program
       console.log(`Removed ${result.removed} deleted files from the index.`);
     }
     console.log(`Wrote ${savedTo}`);
-  });
+  }
+  );
 
 program
   .command("ask")
@@ -67,7 +82,8 @@ program
       throw new CliError(`Could not load index for ${root}: ${errorMessage(error)}`);
     }
 
-    const results = searchIndex(index, question, options.topK);
+    const embeddings = createEmbeddingProvider(index.embedding);
+    const results = await searchIndex(index, question, options.topK, embeddings);
     const formatOptions = {
       query: question,
       root,
@@ -97,6 +113,14 @@ function parseInteger(value: string): number {
   }
 
   return parsed;
+}
+
+function parseEmbeddingProvider(value: string): EmbeddingProviderName {
+  if (value === "local" || value === "openai") {
+    return value;
+  }
+
+  throw new Error(`Expected embedding provider "local" or "openai", received "${value}"`);
 }
 
 function errorMessage(error: unknown): string {

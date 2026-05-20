@@ -2,10 +2,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { CodeChunk } from "./chunk.js";
-import type { SparseVector } from "./vector.js";
+import type { Vector } from "./vector.js";
 
 export type IndexedChunk = CodeChunk & {
-  vector: SparseVector;
+  vector: Vector;
 };
 
 export type IndexedFile = {
@@ -17,11 +17,17 @@ export type IndexedFile = {
 };
 
 export type SearchIndex = {
-  version: 2;
+  version: 3;
   root: string;
   createdAt: string;
+  embedding: EmbeddingMetadata;
   files: IndexedFile[];
   chunks: IndexedChunk[];
+};
+
+export type EmbeddingMetadata = {
+  provider: "local" | "openai";
+  model: string;
 };
 
 export function indexPath(root: string): string {
@@ -40,7 +46,12 @@ export async function loadIndex(root: string): Promise<SearchIndex> {
   const raw = await readFile(filePath, "utf8");
   const parsed = JSON.parse(raw) as SearchIndex;
 
-  if (parsed.version !== 2 || !Array.isArray(parsed.files) || !Array.isArray(parsed.chunks)) {
+  if (
+    parsed.version !== 3 ||
+    !Array.isArray(parsed.files) ||
+    !Array.isArray(parsed.chunks) ||
+    !parsed.embedding
+  ) {
     throw new Error(`Unsupported or corrupt index at ${filePath}`);
   }
 
