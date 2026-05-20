@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 
+import { readFile, stat } from "node:fs/promises";
+import path from "node:path";
+
 import { Command } from "commander";
-import fg from "fast-glob";
+
+import { chunkFile } from "./chunk.js";
+import { discoverFiles } from "./discovery.js";
+import { type SearchIndex, loadIndex, saveIndex } from "./index-store.js";
+import { searchIndex } from "./search.js";
+import { embedText } from "./vector.js";
 
 const program = new Command();
 
@@ -12,26 +20,49 @@ program
 
 program
   .command("index")
-  .description("Discover source files and prepare them for semantic indexing.")
+  .description("Build a local semantic index for a repository.")
   .option("-r, --root <path>", "repository root", process.cwd())
-  .action(async (options: { root: string }) => {
-    const files = await fg(
-      [
-        "**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,py,go,rs,java,cs,php,rb,swift,kt,kts,cpp,c,h,hpp}",
-        "!node_modules/**",
-        "!dist/**",
-        "!build/**",
-        "!.git/**",
-        "!.code-ask/**"
-      ],
-      {
-        cwd: options.root,
-        onlyFiles: true,
-        dot: true
-      }
-    );
+  .option("--max-file-bytes <bytes>", "skip files larger than this size", parseInteger, 250_000)
+  .action(async (options: { root: string; maxFileBytes: number }) => {
+    const root = path.resolve(options.root);
+    const files = await discoverFiles(root);
+    const indexedChunks: SearchIndex["chunks"] = [];
+    let skipped = 0;
 
-    console.log(`Discovered ${files.length} files.`);
+    for (const file of files) {
+      const fullPath = path.join(root, file);
+      const fileStats = await stat(fullPath);
+
+      if (fileStats.size > options.maxFileBytes) {
+        skipped += 1;
+        continue;
+      }
+
+      const contents = await readFile(fullPath, "utf8");
+
+      for (const chunk of chunkFile(file, contents)) {
+        indexedChunks.push({
+          ...chunk,
+          vector: embedText(`${chunk.file}\n${chunk.text}`)
+        });
+      }
+    }
+
+    const index: SearchIndex = {
+      version: 1,
+      root,
+      createdAt: new Date().toISOString(),
+      files: files.length - skipped,
+      chunks: indexedChunks
+    };
+
+    const savedTo = await saveIndex(root, index);
+
+    console.log(`Indexed ${index.files} files into ${index.chunks.length} chunks.`);
+    if (skipped > 0) {
+      console.log(`Skipped ${skipped} large files.`);
+    }
+    console.log(`Wrote ${savedTo}`);
   });
 
 program
@@ -39,10 +70,47 @@ program
   .description("Ask a natural-language question about the indexed repository.")
   .argument("<question>", "question to ask")
   .option("-r, --root <path>", "repository root", process.cwd())
-  .action((question: string, options: { root: string }) => {
-    console.log(`Question: ${question}`);
-    console.log(`Repository: ${options.root}`);
-    console.log("Semantic retrieval is not implemented yet.");
+  .option("-k, --top-k <count>", "number of chunks to return", parseInteger, 5)
+  .action(async (question: string, options: { root: string; topK: number }) => {
+    const root = path.resolve(options.root);
+    let index: SearchIndex;
+
+    try {
+      index = await loadIndex(root);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`${message}\nRun "code-ask index --root ${root}" first.`);
+    }
+
+    const results = searchIndex(index, question, options.topK);
+
+    if (results.length === 0) {
+      console.log("No relevant chunks found.");
+      return;
+    }
+
+    for (const [resultIndex, result] of results.entries()) {
+      const { chunk, score } = result;
+      console.log(
+        `\n${resultIndex + 1}. ${chunk.file}:${chunk.startLine}-${chunk.endLine} (${score.toFixed(3)})`
+      );
+      console.log(formatSnippet(chunk.text));
+    }
   });
 
 await program.parseAsync();
+
+function parseInteger(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Expected a positive integer, received "${value}"`);
+  }
+
+  return parsed;
+}
+
+function formatSnippet(text: string): string {
+  const lines = text.split("\n").slice(0, 12);
+  return lines.map((line) => `  ${line}`).join("\n");
+}

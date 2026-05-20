@@ -9,6 +9,14 @@ npx code-ask index
 npx code-ask ask "where is auth handled?"
 ```
 
+The `index` command discovers common source files, chunks them, computes a local lightweight vector representation, and writes the index to `.code-ask/index.json`.
+
+The `ask` command loads that index and returns the most relevant file snippets with line ranges and scores:
+
+```bash
+npx code-ask ask "where are CLI commands registered?" --top-k 3
+```
+
 ## Development
 
 ```bash
@@ -20,8 +28,7 @@ npm run build
 ## Roadmap
 
 - File discovery with sensible ignore defaults
-- Chunking by language-aware boundaries
-- Embedding provider adapter
-- Local vector index persisted under `.code-ask`
+- Chunking and local vector index persisted under `.code-ask`
+- Embedding provider adapter for higher-quality semantic search
 - Query ranking with file and symbol context
 - Optional answer synthesis with citations
