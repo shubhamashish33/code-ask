@@ -11,6 +11,13 @@ import { type SearchIndex, loadIndex, saveIndex } from "./index-store.js";
 import { searchIndex } from "./search.js";
 import { embedText } from "./vector.js";
 
+class CliError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CliError";
+  }
+}
+
 const program = new Command();
 
 program
@@ -78,8 +85,11 @@ program
     try {
       index = await loadIndex(root);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`${message}\nRun "code-ask index --root ${root}" first.`);
+      if (isNodeError(error) && error.code === "ENOENT") {
+        throw new CliError(`No index found for ${root}. Run "code-ask index --root ${root}" first.`);
+      }
+
+      throw new CliError(`Could not load index for ${root}: ${errorMessage(error)}`);
     }
 
     const results = searchIndex(index, question, options.topK);
@@ -98,7 +108,12 @@ program
     }
   });
 
-await program.parseAsync();
+try {
+  await program.parseAsync();
+} catch (error) {
+  console.error(`Error: ${errorMessage(error)}`);
+  process.exitCode = 1;
+}
 
 function parseInteger(value: string): number {
   const parsed = Number.parseInt(value, 10);
@@ -108,6 +123,14 @@ function parseInteger(value: string): number {
   }
 
   return parsed;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }
 
 function formatSnippet(text: string): string {
