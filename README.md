@@ -36,6 +36,10 @@ npm run dev -- --help
 npm run build
 ```
 
+## Agent Instructions
+
+Lightweight agent instruction files live in `agent-skills/semantic-code-search/` for Codex, Claude, and Gemini. They are repo-local guidance only; do not install them globally.
+
 ## Roadmap
 
 - File discovery with sensible ignore defaults

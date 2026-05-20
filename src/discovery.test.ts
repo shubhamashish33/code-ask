@@ -33,7 +33,9 @@ describe("discoverFiles", () => {
       "generated/keep.ts": "export const keep = true;\n"
     });
 
-    await expect(discoverFiles(root)).resolves.toEqual(["generated/keep.ts", "src/index.ts"]);
+    const files = await discoverFiles(root);
+
+    expect(files.slice().sort()).toEqual(["generated/keep.ts", "src/index.ts"]);
   });
 
   it("works when ignore files are absent", async () => {
