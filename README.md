@@ -10,6 +10,7 @@ npx code-ask ask "where is auth handled?"
 ```
 
 The `index` command discovers common source files, chunks them, computes a local lightweight vector representation, and writes the index to `.code-ask/index.json`.
+Discovery respects `.gitignore`; add `.codeaskignore` at the repository root for search-specific exclusions.
 
 The `ask` command loads that index and returns the most relevant file snippets with line ranges and scores:
 
