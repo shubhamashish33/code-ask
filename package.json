@@ -1,0 +1,34 @@
+{
+  "name": "semantic-code-search-cli",
+  "version": "0.1.0",
+  "description": "A semantic code search CLI for indexing repositories and asking codebase questions.",
+  "type": "module",
+  "bin": {
+    "code-ask": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "semantic-search",
+    "code-search"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "fast-glob": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3"
+  }
+}
