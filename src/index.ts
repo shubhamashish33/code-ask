@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 
-import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { Command } from "commander";
 
-import { chunkFile } from "./chunk.js";
-import { discoverFiles } from "./discovery.js";
 import { type SearchIndex, loadIndex, saveIndex } from "./index-store.js";
+import { buildIndex } from "./indexer.js";
 import { searchIndex } from "./search.js";
-import { embedText } from "./vector.js";
 
 class CliError extends Error {
   constructor(message: string) {
@@ -32,42 +29,16 @@ program
   .option("--max-file-bytes <bytes>", "skip files larger than this size", parseInteger, 250_000)
   .action(async (options: { root: string; maxFileBytes: number }) => {
     const root = path.resolve(options.root);
-    const files = await discoverFiles(root);
-    const indexedChunks: SearchIndex["chunks"] = [];
-    let skipped = 0;
+    const result = await buildIndex({ root, maxFileBytes: options.maxFileBytes });
+    const savedTo = await saveIndex(root, result.index);
 
-    for (const file of files) {
-      const fullPath = path.join(root, file);
-      const fileStats = await stat(fullPath);
-
-      if (fileStats.size > options.maxFileBytes) {
-        skipped += 1;
-        continue;
-      }
-
-      const contents = await readFile(fullPath, "utf8");
-
-      for (const chunk of chunkFile(file, contents)) {
-        indexedChunks.push({
-          ...chunk,
-          vector: embedText(`${chunk.file}\n${chunk.text}`)
-        });
-      }
+    console.log(`Indexed ${result.index.files.length} files into ${result.index.chunks.length} chunks.`);
+    console.log(`Changed ${result.changed} files, reused ${result.reused} files.`);
+    if (result.skipped > 0) {
+      console.log(`Skipped ${result.skipped} large files.`);
     }
-
-    const index: SearchIndex = {
-      version: 1,
-      root,
-      createdAt: new Date().toISOString(),
-      files: files.length - skipped,
-      chunks: indexedChunks
-    };
-
-    const savedTo = await saveIndex(root, index);
-
-    console.log(`Indexed ${index.files} files into ${index.chunks.length} chunks.`);
-    if (skipped > 0) {
-      console.log(`Skipped ${skipped} large files.`);
+    if (result.removed > 0) {
+      console.log(`Removed ${result.removed} deleted files from the index.`);
     }
     console.log(`Wrote ${savedTo}`);
   });

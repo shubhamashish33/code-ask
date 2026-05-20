@@ -41,10 +41,16 @@ describe("searchIndex", () => {
 
 function createIndex(chunks: IndexedChunk[]): SearchIndex {
   return {
-    version: 1,
+    version: 2,
     root: "/repo",
     createdAt: "2026-05-20T00:00:00.000Z",
-    files: chunks.length,
+    files: chunks.map((chunk) => ({
+      path: chunk.file,
+      size: chunk.text.length,
+      mtimeMs: 1,
+      hash: chunk.id,
+      chunkIds: [chunk.id]
+    })),
     chunks
   };
 }

@@ -18,10 +18,18 @@ describe("index store", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "code-ask-"));
     tempRoots.push(root);
     const index: SearchIndex = {
-      version: 1,
+      version: 2,
       root,
       createdAt: "2026-05-20T00:00:00.000Z",
-      files: 1,
+      files: [
+        {
+          path: "src/index.ts",
+          size: 20,
+          mtimeMs: 1,
+          hash: "abc",
+          chunkIds: ["src/index.ts:1-1"]
+        }
+      ],
       chunks: [
         {
           id: "src/index.ts:1-1",
@@ -45,10 +53,10 @@ describe("index store", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "code-ask-"));
     tempRoots.push(root);
     await saveIndex(root, {
-      version: 1,
+      version: 2,
       root,
       createdAt: "2026-05-20T00:00:00.000Z",
-      files: 0,
+      files: [],
       chunks: []
     });
 

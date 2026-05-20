@@ -8,11 +8,19 @@ export type IndexedChunk = CodeChunk & {
   vector: SparseVector;
 };
 
+export type IndexedFile = {
+  path: string;
+  size: number;
+  mtimeMs: number;
+  hash: string;
+  chunkIds: string[];
+};
+
 export type SearchIndex = {
-  version: 1;
+  version: 2;
   root: string;
   createdAt: string;
-  files: number;
+  files: IndexedFile[];
   chunks: IndexedChunk[];
 };
 
@@ -32,7 +40,7 @@ export async function loadIndex(root: string): Promise<SearchIndex> {
   const raw = await readFile(filePath, "utf8");
   const parsed = JSON.parse(raw) as SearchIndex;
 
-  if (parsed.version !== 1 || !Array.isArray(parsed.chunks)) {
+  if (parsed.version !== 2 || !Array.isArray(parsed.files) || !Array.isArray(parsed.chunks)) {
     throw new Error(`Unsupported or corrupt index at ${filePath}`);
   }
 
