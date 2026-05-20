@@ -16,6 +16,8 @@ The `ask` command loads that index and returns the most relevant file snippets w
 
 ```bash
 npx code-ask ask "where are CLI commands registered?" --top-k 3
+npx code-ask ask "auth middleware" --json
+npx code-ask ask "auth middleware" --no-snippets --top-k 10
 ```
 
 ## Development

@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { Command } from "commander";
 
+import { formatHumanResults, formatJsonResults } from "./format.js";
 import { type SearchIndex, loadIndex, saveIndex } from "./index-store.js";
 import { buildIndex } from "./indexer.js";
 import { searchIndex } from "./search.js";
@@ -49,7 +50,10 @@ program
   .argument("<question>", "question to ask")
   .option("-r, --root <path>", "repository root", process.cwd())
   .option("-k, --top-k <count>", "number of chunks to return", parseInteger, 5)
-  .action(async (question: string, options: { root: string; topK: number }) => {
+  .option("--json", "print machine-readable JSON")
+  .option("--no-snippets", "omit matched source snippets from output")
+  .action(
+    async (question: string, options: { root: string; topK: number; json?: boolean; snippets: boolean }) => {
     const root = path.resolve(options.root);
     let index: SearchIndex;
 
@@ -64,20 +68,19 @@ program
     }
 
     const results = searchIndex(index, question, options.topK);
+    const formatOptions = {
+      query: question,
+      root,
+      includeSnippets: options.snippets
+    };
 
-    if (results.length === 0) {
-      console.log("No relevant chunks found.");
-      return;
+    if (options.json) {
+      process.stdout.write(formatJsonResults(results, formatOptions));
+    } else {
+      console.log(formatHumanResults(results, formatOptions));
     }
-
-    for (const [resultIndex, result] of results.entries()) {
-      const { chunk, score } = result;
-      console.log(
-        `\n${resultIndex + 1}. ${chunk.file}:${chunk.startLine}-${chunk.endLine} (${score.toFixed(3)})`
-      );
-      console.log(formatSnippet(chunk.text));
-    }
-  });
+  }
+  );
 
 try {
   await program.parseAsync();
@@ -102,9 +105,4 @@ function errorMessage(error: unknown): string {
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
-}
-
-function formatSnippet(text: string): string {
-  const lines = text.split("\n").slice(0, 12);
-  return lines.map((line) => `  ${line}`).join("\n");
 }
