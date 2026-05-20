@@ -34,6 +34,8 @@ export function cosineSimilarity(left: SparseVector, right: SparseVector): numbe
 function splitIdentifier(token: string): string[] {
   const spaced = token
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([a-zA-Z])([0-9])/g, "$1 $2")
+    .replace(/([0-9])([a-zA-Z])/g, "$1 $2")
     .replace(/[_-]+/g, " ")
     .toLowerCase();
 
@@ -49,7 +51,7 @@ function stemToken(token: string): string {
     return token.slice(0, -2);
   }
 
-  if (token.length > 4 && token.endsWith("es")) {
+  if (token.length > 4 && /(?:ches|shes|sses|xes|zes)$/.test(token)) {
     return token.slice(0, -2);
   }
 
