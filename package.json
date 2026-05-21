@@ -4,7 +4,7 @@
   "description": "A CLI for indexing repositories and asking codebase questions.",
   "type": "module",
   "bin": {
-    "code-ask": "./dist/index.js"
+    "code-ask": "dist/index.js"
   },
   "files": [
     "dist",
