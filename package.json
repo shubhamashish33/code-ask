@@ -1,7 +1,7 @@
 {
-  "name": "semantic-code-search-cli",
+  "name": "code-ask",
   "version": "0.1.0",
-  "description": "A semantic code search CLI for indexing repositories and asking codebase questions.",
+  "description": "A CLI for indexing repositories and asking codebase questions.",
   "type": "module",
   "bin": {
     "code-ask": "./dist/index.js"

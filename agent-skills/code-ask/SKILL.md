@@ -1,9 +1,9 @@
 ---
-name: semantic-code-search
-description: Use when agents need semantic code search over a local repository to locate implementations, inspect relevant snippets, or gather structured search results before editing.
+name: code-ask
+description: Use when agents need code-ask semantic search over a local repository to locate implementations, inspect relevant snippets, or gather structured search results before editing.
 ---
 
-# Semantic Code Search CLI
+# Code Ask
 
 Use this repo's `code-ask` CLI for semantic code search when exploring unfamiliar code, locating implementations, or collecting cited snippets before editing.
 

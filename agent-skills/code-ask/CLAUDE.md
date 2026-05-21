@@ -1,4 +1,4 @@
-# Semantic Code Search CLI Adapter
+# Code Ask Adapter
 
 Use `SKILL.md` in this directory as the source of truth.
 
