@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 
+import { createRequire } from "node:module";
 import path from "node:path";
 
 import { Command } from "commander";
 
 import { createEmbeddingProvider, type EmbeddingProviderName } from "./embeddings.js";
-import { formatHumanResults, formatJsonResults } from "./format.js";
+import { formatHumanResults, formatJsonResults, formatMarkdownResults } from "./format.js";
 import { type SearchIndex, loadIndex, saveIndex } from "./index-store.js";
 import { buildIndex } from "./indexer.js";
 import { searchIndex } from "./search.js";
+import { formatHumanStatus, formatJsonStatus, getIndexStatus } from "./status.js";
 
 class CliError extends Error {
   constructor(message: string) {
@@ -17,12 +19,14 @@ class CliError extends Error {
   }
 }
 
+const require = createRequire(import.meta.url);
+const packageJson = require("../package.json") as { version: string };
 const program = new Command();
 
 program
   .name("code-ask")
   .description("Index a repository and ask semantic questions about the code.")
-  .version("0.1.0");
+  .version(packageJson.version);
 
 program
   .command("index")
@@ -66,9 +70,26 @@ program
   .option("-r, --root <path>", "repository root", process.cwd())
   .option("-k, --top-k <count>", "number of chunks to return", parseInteger, 5)
   .option("--json", "print machine-readable JSON")
+  .option("--markdown", "print shareable Markdown")
+  .option("--color", "force colored human output")
+  .option("--no-color", "disable colored human output")
   .option("--no-snippets", "omit matched source snippets from output")
   .action(
-    async (question: string, options: { root: string; topK: number; json?: boolean; snippets: boolean }) => {
+    async (
+      question: string,
+      options: {
+        root: string;
+        topK: number;
+        json?: boolean;
+        markdown?: boolean;
+        color?: boolean;
+        snippets: boolean;
+      }
+    ) => {
+    if (options.json && options.markdown) {
+      throw new CliError('Choose either "--json" or "--markdown", not both.');
+    }
+
     const root = path.resolve(options.root);
     let index: SearchIndex;
 
@@ -87,16 +108,42 @@ program
     const formatOptions = {
       query: question,
       root,
-      includeSnippets: options.snippets
+      includeSnippets: options.snippets,
+      color: shouldUseColor(options.color)
     };
 
     if (options.json) {
       process.stdout.write(formatJsonResults(results, formatOptions));
+    } else if (options.markdown) {
+      process.stdout.write(formatMarkdownResults(results, formatOptions));
     } else {
       console.log(formatHumanResults(results, formatOptions));
     }
   }
   );
+
+program
+  .command("status")
+  .description("Show whether the local semantic index is fresh.")
+  .option("-r, --root <path>", "repository root", process.cwd())
+  .option("--max-file-bytes <bytes>", "ignore files larger than this size", parseInteger, 250_000)
+  .option("--json", "print machine-readable JSON")
+  .action(async (options: { root: string; maxFileBytes: number; json?: boolean }) => {
+    const status = await getIndexStatus({
+      root: path.resolve(options.root),
+      maxFileBytes: options.maxFileBytes
+    });
+
+    if (options.json) {
+      process.stdout.write(formatJsonStatus(status));
+    } else {
+      console.log(formatHumanStatus(status));
+    }
+
+    if (status.status !== "fresh") {
+      process.exitCode = 1;
+    }
+  });
 
 try {
   await program.parseAsync();
@@ -129,4 +176,12 @@ function errorMessage(error: unknown): string {
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
+}
+
+function shouldUseColor(option: boolean | undefined): boolean {
+  if (option !== undefined) {
+    return option;
+  }
+
+  return Boolean(process.stdout.isTTY && !process.env.NO_COLOR);
 }

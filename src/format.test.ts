@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatHumanResults, formatJsonResults } from "./format.js";
+import { formatHumanResults, formatJsonResults, formatMarkdownResults } from "./format.js";
 import type { SearchResult } from "./search.js";
 
 const results: SearchResult[] = [
@@ -39,6 +39,12 @@ describe("formatHumanResults", () => {
   it("formats empty results", () => {
     expect(formatHumanResults([], options)).toBe('No relevant chunks found for "auth middleware".');
   });
+
+  it("formats colored output when requested", () => {
+    expect(formatHumanResults(results, { ...options, color: true })).toContain(
+      "\u001B[32msrc/auth.ts\u001B[0m"
+    );
+  });
 });
 
 describe("formatJsonResults", () => {
@@ -75,5 +81,23 @@ describe("formatJsonResults", () => {
         }
       ]
     });
+  });
+});
+
+describe("formatMarkdownResults", () => {
+  it("formats shareable Markdown results", () => {
+    expect(formatMarkdownResults(results, options)).toBe(
+      'Query: `auth middleware`\n\nFound 1 relevant chunk.\n\n## 1. `src/auth.ts:1-2`\n\nScore: `0.875`\n\n```ts\nexport function authMiddleware() {\n  return true;\n}\n```\n'
+    );
+  });
+
+  it("omits snippets from Markdown when requested", () => {
+    expect(formatMarkdownResults(results, { ...options, includeSnippets: false })).toBe(
+      "Query: `auth middleware`\n\nFound 1 relevant chunk.\n\n## 1. `src/auth.ts:1-2`\n\nScore: `0.875`\n"
+    );
+  });
+
+  it("formats empty Markdown results", () => {
+    expect(formatMarkdownResults([], options)).toBe("No relevant chunks found for `auth middleware`.\n");
   });
 });

@@ -17,7 +17,16 @@ The `ask` command loads that index and returns the most relevant file snippets w
 ```bash
 npx code-ask ask "where are CLI commands registered?" --top-k 3
 npx code-ask ask "auth middleware" --json
+npx code-ask ask "auth middleware" --markdown
+npx code-ask ask "auth middleware" --color
 npx code-ask ask "auth middleware" --no-snippets --top-k 10
+```
+
+Check whether the saved index is current:
+
+```bash
+npx code-ask status
+npx code-ask status --json
 ```
 
 Local hashed vectors are used by default. To build an index with OpenAI embeddings:
