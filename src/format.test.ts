@@ -26,18 +26,18 @@ const options = {
 describe("formatHumanResults", () => {
   it("formats ranked results with snippets", () => {
     expect(formatHumanResults(results, options)).toBe(
-      "1. src/auth.ts:1-2 (0.875)\n  export function authMiddleware() {\n    return true;\n  }"
+      'Query: "auth middleware"\nFound 1 relevant chunk.\n\n1. src/auth.ts:1-2\n   score 0.875\n   1 | export function authMiddleware() {\n   2 |   return true;\n   3 | }'
     );
   });
 
   it("omits snippets when requested", () => {
     expect(formatHumanResults(results, { ...options, includeSnippets: false })).toBe(
-      "1. src/auth.ts:1-2 (0.875)"
+      'Query: "auth middleware"\nFound 1 relevant chunk.\n\n1. src/auth.ts:1-2\n   score 0.875'
     );
   });
 
   it("formats empty results", () => {
-    expect(formatHumanResults([], options)).toBe("No relevant chunks found.");
+    expect(formatHumanResults([], options)).toBe('No relevant chunks found for "auth middleware".');
   });
 });
 

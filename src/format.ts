@@ -8,21 +8,27 @@ export type FormatOptions = {
 
 export function formatHumanResults(results: SearchResult[], options: FormatOptions): string {
   if (results.length === 0) {
-    return "No relevant chunks found.";
+    return `No relevant chunks found for "${options.query}".`;
   }
 
-  return results
+  const heading = `Query: "${options.query}"\nFound ${results.length} relevant ${pluralize("chunk", results.length)}.`;
+  const body = results
     .map((result, index) => {
       const { chunk, score } = result;
-      const header = `${index + 1}. ${chunk.file}:${chunk.startLine}-${chunk.endLine} (${score.toFixed(3)})`;
+      const header = [
+        `${index + 1}. ${chunk.file}:${chunk.startLine}-${chunk.endLine}`,
+        `   score ${score.toFixed(3)}`
+      ].join("\n");
 
       if (!options.includeSnippets) {
         return header;
       }
 
-      return `${header}\n${formatSnippet(chunk.text)}`;
+      return `${header}\n${formatSnippet(chunk.text, chunk.startLine)}`;
     })
     .join("\n\n");
+
+  return `${heading}\n\n${body}`;
 }
 
 export function formatJsonResults(results: SearchResult[], options: FormatOptions): string {
@@ -53,13 +59,27 @@ export function formatJsonResults(results: SearchResult[], options: FormatOption
   )}\n`;
 }
 
-function formatSnippet(text: string): string {
-  return snippetText(text)
+function formatSnippet(text: string, startLine: number): string {
+  const lines = text
     .split("\n")
-    .map((line) => `  ${line}`)
+    .slice(0, 12)
+    .map((line, index) => {
+      const lineNumber = String(startLine + index).padStart(4, " ");
+      return `${lineNumber} | ${line}`;
+    });
+
+  if (text.split("\n").length > 12) {
+    lines.push("     | ...");
+  }
+
+  return lines
     .join("\n");
 }
 
 function snippetText(text: string): string {
   return text.split("\n").slice(0, 12).join("\n");
+}
+
+function pluralize(word: string, count: number): string {
+  return count === 1 ? word : `${word}s`;
 }
