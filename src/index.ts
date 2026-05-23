@@ -5,6 +5,13 @@ import path from "node:path";
 
 import { Command } from "commander";
 
+import {
+  answerFromResults,
+  createAnswerProvider,
+  formatHumanAnswer,
+  formatJsonAnswer,
+  formatMarkdownAnswer
+} from "./answer.js";
 import { createEmbeddingProvider, type EmbeddingProviderName } from "./embeddings.js";
 import { formatHumanResults, formatJsonResults, formatMarkdownResults } from "./format.js";
 import { type SearchIndex, loadIndex, saveIndex } from "./index-store.js";
@@ -144,6 +151,67 @@ program
       process.exitCode = 1;
     }
   });
+
+program
+  .command("answer")
+  .description("Generate a cited answer from the indexed repository.")
+  .argument("<question>", "question to answer")
+  .option("-r, --root <path>", "repository root", process.cwd())
+  .option("-k, --top-k <count>", "number of chunks to use as context", parseInteger, 5)
+  .option("--model <model>", "OpenAI-compatible model for answer generation")
+  .option("--json", "print machine-readable JSON")
+  .option("--markdown", "print shareable Markdown")
+  .option("--no-snippets", "omit citation snippets from JSON and Markdown output")
+  .action(
+    async (
+      question: string,
+      options: {
+        root: string;
+        topK: number;
+        model?: string;
+        json?: boolean;
+        markdown?: boolean;
+        snippets: boolean;
+      }
+    ) => {
+      if (options.json && options.markdown) {
+        throw new CliError('Choose either "--json" or "--markdown", not both.');
+      }
+
+      const root = path.resolve(options.root);
+      let index: SearchIndex;
+
+      try {
+        index = await loadIndex(root);
+      } catch (error) {
+        if (isNodeError(error) && error.code === "ENOENT") {
+          throw new CliError(`No index found for ${root}. Run "code-ask index --root ${root}" first.`);
+        }
+
+        throw new CliError(`Could not load index for ${root}: ${errorMessage(error)}`);
+      }
+
+      const embeddings = createEmbeddingProvider(index.embedding);
+      const results = await searchIndex(index, question, options.topK, embeddings);
+      const provider = results.length > 0 ? createAnswerProvider({ model: options.model }) : undefined;
+      const answer = await answerFromResults({
+        query: question,
+        results,
+        provider
+      });
+      const formatOptions = {
+        includeSnippets: options.snippets
+      };
+
+      if (options.json) {
+        process.stdout.write(formatJsonAnswer(answer, formatOptions));
+      } else if (options.markdown) {
+        process.stdout.write(formatMarkdownAnswer(answer, formatOptions));
+      } else {
+        console.log(formatHumanAnswer(answer));
+      }
+    }
+  );
 
 try {
   await program.parseAsync();
