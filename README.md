@@ -17,7 +17,24 @@ The `ask` command loads that index and returns the most relevant file snippets w
 ```bash
 npx code-ask ask "where are CLI commands registered?" --top-k 3
 npx code-ask ask "auth middleware" --json
+npx code-ask ask "auth middleware" --markdown
+npx code-ask ask "auth middleware" --color
 npx code-ask ask "auth middleware" --no-snippets --top-k 10
+```
+
+The `answer` command uses the indexed snippets as context and generates a concise answer with citations:
+
+```bash
+OPENAI_API_KEY=... npx code-ask answer "how does indexing work?"
+OPENAI_API_KEY=... npx code-ask answer "how is the index saved?" --markdown
+OPENAI_API_KEY=... npx code-ask answer "where is config loaded?" --json
+```
+
+Check whether the saved index is current:
+
+```bash
+npx code-ask status
+npx code-ask status --json
 ```
 
 Local hashed vectors are used by default. To build an index with OpenAI embeddings:
@@ -33,6 +50,8 @@ OPENAI_API_KEY=... npx code-ask index --embeddings openai
 Local hashed embeddings are local-only. Source chunks are read from disk, converted to local vectors, and stored in `.code-ask/`; they are not sent to a remote service.
 
 When using `--embeddings openai`, code chunks are sent to the configured embeddings endpoint during indexing, and query text is sent during `ask`. Use this only for repositories where that is acceptable.
+
+When using `answer`, the top retrieved code snippets and question are sent to the configured OpenAI-compatible responses endpoint. Use `ask` when you only want local retrieval output.
 
 ## Development
 
